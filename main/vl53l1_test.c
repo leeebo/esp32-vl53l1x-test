@@ -9,7 +9,6 @@
 #include "driver/gpio.h"
 #include "driver/i2c.h"
 #include "soc/gpio_struct.h"
-
 #include "vl53l1_api.h"
 
 VL53L1_Dev_t dev;

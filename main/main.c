@@ -139,24 +139,24 @@ extern void rn_task(void *arg);
 void app_main(void)
 {
     nvs_flash_init();
-    tcpip_adapter_init();
-    ESP_ERROR_CHECK( esp_event_loop_init(event_handler, NULL) );
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
-    ESP_ERROR_CHECK( esp_wifi_set_storage(WIFI_STORAGE_RAM) );
-    ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
-    wifi_config_t sta_config = {
-        .sta = {
-            .ssid = CONFIG_SSID,
-            .password = CONFIG_SSID_PASSWORD,
-            .bssid_set = false
-        }
-    };
-    ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &sta_config) );
-    ESP_ERROR_CHECK( esp_wifi_start() );
-    ESP_ERROR_CHECK( esp_wifi_connect() );
+    // tcpip_adapter_init();
+    // ESP_ERROR_CHECK( esp_event_loop_init(event_handler, NULL) );
+    // wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    // ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
+    // ESP_ERROR_CHECK( esp_wifi_set_storage(WIFI_STORAGE_RAM) );
+    // ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
+    // wifi_config_t sta_config = {
+    //     .sta = {
+    //         .ssid = CONFIG_SSID,
+    //         .password = CONFIG_SSID_PASSWORD,
+    //         .bssid_set = false
+    //     }
+    // };
+    // ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &sta_config) );
+    // ESP_ERROR_CHECK( esp_wifi_start() );
+    // ESP_ERROR_CHECK( esp_wifi_connect() );
 
-    esp_log_level_set("wifi", ESP_LOG_WARN);
+    // esp_log_level_set("wifi", ESP_LOG_WARN);
 
     i2c_init();
 
@@ -164,13 +164,13 @@ void app_main(void)
 
     dist_queue = xQueueCreate(DIST_QSIZE, sizeof(uint16_t));
 
-    xTaskCreate(udp_task, "udp_task", 2048, NULL, 4, NULL);
+   // xTaskCreate(udp_task, "udp_task", 2048, NULL, 4, NULL);
     xTaskCreate(rn_task, "rn_task", 2048, NULL, 7, NULL);
 
-    gpio_set_direction(GPIO_NUM_2, GPIO_MODE_OUTPUT);
+    gpio_set_direction(GPIO_NUM_25, GPIO_MODE_OUTPUT);
     int level = 0;
     while (true) {
-        gpio_set_level(GPIO_NUM_2, level);
+        gpio_set_level(GPIO_NUM_25, level);
         level = !level;
         vTaskDelay(300 / portTICK_PERIOD_MS);
     }
