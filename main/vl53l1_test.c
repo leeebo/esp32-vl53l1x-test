@@ -18,20 +18,13 @@ VL53L1_DEV Dev = &dev;
 struct rnpkt {
     uint16_t range[NRANGE];
 };
+VL53L1_UserRoi_t Roi0, Roi1;
 
-/* Autonomous ranging loop*/
-static void
-AutonomousLowPowerRangingTest(void)
+
+/*init  vl53l1 module*/
+void vl53l1_init()
 {
-    static VL53L1_RangingMeasurementData_t RangingData;
-    printf("Autonomous Ranging Test\n");
-    int status = VL53L1_WaitDeviceBooted(Dev);
-    status = VL53L1_DataInit(Dev);
-    status = VL53L1_StaticInit(Dev);
-    status = VL53L1_SetDistanceMode(Dev, VL53L1_DISTANCEMODE_LONG);
-    status = VL53L1_SetMeasurementTimingBudgetMicroSeconds(Dev, 50000);
-    status = VL53L1_SetInterMeasurementPeriodMilliSeconds(Dev, 100);
-    VL53L1_UserRoi_t Roi0, Roi1;
+
     Roi0.TopLeftX = 0;
     Roi0.TopLeftY = 15;
     Roi0.BotRightX = 7;
@@ -40,22 +33,40 @@ AutonomousLowPowerRangingTest(void)
     Roi1.TopLeftY = 15;
     Roi1.BotRightX = 15;
     Roi1.BotRightY = 0;
+     
+    int status = VL53L1_WaitDeviceBooted(Dev);
+    status = VL53L1_DataInit(Dev);
+    status = VL53L1_StaticInit(Dev);
+    status = VL53L1_SetDistanceMode(Dev, VL53L1_DISTANCEMODE_LONG);
+    status = VL53L1_SetMeasurementTimingBudgetMicroSeconds(Dev, 50000);
+    status = VL53L1_SetInterMeasurementPeriodMilliSeconds(Dev, 100);
+
     status = VL53L1_SetUserROI(Dev, &Roi0);
     status = VL53L1_StartMeasurement(Dev);
-
-    int roi = 0;
-
     if(status) {
         printf("VL53L1_StartMeasurement failed \n");
         while(1);
     }	
+    
+}
+
+/* Autonomous ranging loop*/
+static void
+AutonomousLowPowerRangingTest(void)
+{
+    printf("Autonomous Ranging Test\n");
+    
+    static VL53L1_RangingMeasurementData_t RangingData;
+    VL53L1_UserRoi_t Roi1;
+    int roi = 0;
+
 
     float left = 0, right = 0;
     if (0/*isInterrupt*/) {
     } else {
         do // polling mode
             {
-                status = VL53L1_WaitMeasurementDataReady(Dev);
+                int status = VL53L1_WaitMeasurementDataReady(Dev);
                 if(!status) {
                     status = VL53L1_GetRangingMeasurementData(Dev, &RangingData);
                     if(status==0) {
@@ -87,8 +98,7 @@ AutonomousLowPowerRangingTest(void)
 
 static int i2c_handle = CONFIG_I2C_NUM;
 
-void
-rn_task(void *pvParameters)
+void rn_task(void *pvParameters)
 {
     // xshut high
     gpio_set_direction(CONFIG_XSHUT_IO, GPIO_MODE_OUTPUT);
@@ -108,6 +118,7 @@ rn_task(void *pvParameters)
     VL53L1_RdWord(Dev, 0x010F, &wordData);
     printf("VL53L1X: %02X\n\r", wordData);
 
+    vl53l1_init();
     AutonomousLowPowerRangingTest();
 
     while(1) {
