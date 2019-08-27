@@ -8,18 +8,15 @@
 
 #include "driver/gpio.h"
 #include "driver/i2c.h"
-#include "soc/gpio_struct.h"
+//#include "soc/gpio_struct.h"
 
-#define DIST_QSIZE 128
-#define I2C_MASTER_SCL_IO               CONFIG_SCL_IO
+//#define DIST_QSIZE 128
+#define I2C_MASTER_SCL_IO               CONFIG_SCL_IO     //make menuconfig 配置端口号
 #define I2C_MASTER_SDA_IO               CONFIG_SDA_IO
 #define I2C_MASTER_NUM                  CONFIG_I2C_NUM
 #define I2C_MASTER_TX_BUF_DISABLE       0
 #define I2C_MASTER_RX_BUF_DISABLE       0
 #define I2C_MASTER_FREQ_HZ              400000
-
-
-
 
 
 static void i2c_init(void)
@@ -38,21 +35,17 @@ static void i2c_init(void)
                        0);
 }
 
-extern void rn_task(void *arg);
+extern void vl53l1x_task(void *arg);
 
 void app_main(void)
 {
    
     i2c_init();
-    
-   // xTaskCreate(udp_task, "udp_task", 2048, NULL, 4, NULL);
-    xTaskCreate(rn_task, "rn_task", 2048, NULL, 7, NULL);
 
-    gpio_set_direction(GPIO_NUM_25, GPIO_MODE_OUTPUT); //led
-    int level = 0;
+    xTaskCreate(vl53l1x_task, "vl53l1x_task", 2048, NULL, 7, NULL);
+
     while (true) {
-        gpio_set_level(GPIO_NUM_25, level);
-        level = !level;
+
         vTaskDelay(300 / portTICK_PERIOD_MS);
     }
 }
