@@ -19,6 +19,8 @@
 #define I2C_MASTER_FREQ_HZ              400000
 
 
+extern void vl53l1x_task(void *);
+
 static void i2c_init(void)
 {
     int i2c_master_port = I2C_MASTER_NUM;
@@ -35,7 +37,7 @@ static void i2c_init(void)
                        0);
 }
 
-extern void vl53l1x_task(void *arg);
+
 
 void app_main(void)
 {
