@@ -8,20 +8,32 @@ config I2C_NUM
 
 config SCL_IO
     int "SCL GPIO NUM"
-    default 26
+    default 19
     help
 	GPIO pin for I2C SCL
 
 config SDA_IO
     int "SDA GPIO NUM"
-    default 25
+    default 18
     help
 	GPIO pin for I2C SDA
 
 config XSHUT_IO
     int "XSHUT GPIO NUM"
-    default 27
+    default 5
     help
 	GPIO pin for VL53L1X XSHUT
+
+config LED_RED_IO
+    int "LED_RED GPIO NUM"
+    default 25
+    help
+	GPIO pin for LED_RED
+    
+config LED_GREEN_IO
+    int "LED_GREEN GPIO NUM"
+    default 26
+    help
+	GPIO pin for LED_GREEN
 
 endmenu
