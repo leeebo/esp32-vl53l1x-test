@@ -29,7 +29,14 @@
 #define LED_GREEN_IO CONFIG_LED_GREEN_IO
 static const char *TAG = "vl53l1";
 
-float get_base_height(VL53L1_Dev_t *dev)
+volatile float height_current; //current height （cm）
+volatile int is_detected;      //detected == 1  undetected == 0  error<0  : undetected == -1 base_height changed
+TaskHandle_t hauto_detect_task;
+volatile bool is_init = false;
+
+static void auto_detect_task(void * pvParameters) ;
+
+static float get_base_height(VL53L1_Dev_t *dev)
 {
     float heightCurrent = 0;
     int countForAvg = 5;
@@ -66,6 +73,9 @@ float get_base_height(VL53L1_Dev_t *dev)
 */
 void vl53l1_init(OBJECT_DETECT *object)
 {
+    if(is_init){
+        return;
+    }
 
     uint8_t byteData;
     uint16_t wordData;
@@ -93,10 +103,11 @@ void vl53l1_init(OBJECT_DETECT *object)
     if (status)
     {
         ESP_LOGE(TAG, "VL53L1_StartMeasurement failed \n");
+        return ;
 
     }else
     {
-        ESP_LOGI(TAG, "VL53L1 StartMeasurement  \n");
+        ESP_LOGD(TAG, "VL53L1 StartMeasurement  \n");
     }
 
     if (object->base_height == 0)
@@ -104,14 +115,65 @@ void vl53l1_init(OBJECT_DETECT *object)
         object->base_height= get_base_height(object->pvl53l1_dev);  //base height is automatically obtained
     }
 
-    xTaskCreate( auto_detect_task, "auto_detect_task", 2048, object, 5, NULL );  
+    xTaskCreate(auto_detect_task, "auto_detect_task", 2048, object, 5, hauto_detect_task);  
+    is_init = true ;
     
 }
 
 
+/** 
+* @brief deinit  vl53l1 module ,delete auto_detect_task task
+*
+*/
+void vl53l1_deinit(OBJECT_DETECT *object)
+{
+    if (!is_init)
+    {
+        return;
+    }
+    vTaskDelete(hauto_detect_task);
+    is_init = false;
+}
+
+/**
+* @brief get height value
+* 
+*/
+float vl53l1_get_height(void){
+   
+    if (!is_init)
+    {
+        return 0;
+    }
+
+    return height_current;
+}
+
+
+/**
+* @brief get height value
+* @return == 1：detected    return== 0：undetected   return == -2：base_height changed  return == -1：vl53l1 not init 
+*/
+int vl53l1_get_detect_result(void){
+    
+    if (!is_init)
+    {
+        return -1;
+    }
+
+    return is_detected;
+}
+
+
+
 
 /* Autonomous ranging loop*/
-void auto_detect_task(void * pvParameters) 
+/**
+ * @brief auto_detect_task 
+ * set the is_detected flag when object is detected
+ * set the height_current when measurement update
+ */
+static void auto_detect_task(void * pvParameters) 
 {
     OBJECT_DETECT *object = (OBJECT_DETECT *)pvParameters;
     ESP_LOGI(TAG, "Autonomous Detect\n");
@@ -119,8 +181,8 @@ void auto_detect_task(void * pvParameters)
     VL53L1_RangingMeasurementData_t RangingData;
     float heightCurrent = 0;
     static int detectedCount = 0;
-    static bool ledRedState = 0;
-    static bool ledGreenState = 0;
+    // static bool ledRedState = 0;
+    // static bool ledGreenState = 0;
 
     do
     {                                                      // polling mode
@@ -137,31 +199,32 @@ void auto_detect_task(void * pvParameters)
                          RangingData.AmbientRateRtnMegaCps / 65336.0);
 #else
                 heightCurrent = RangingData.RangeMilliMeter / 10.0;
-                object ->height_current = heightCurrent;
+                height_current = heightCurrent;
 
                 if (object->base_height - heightCurrent > object->min_object_height)
                 {
                     /* code */
-                    if (detectedCount < 5) //1s
+                    if (detectedCount <  object->min_detect_times) //1s
                     {
                         detectedCount++;
                     }
                     else
                     {
-                        object->is_detected = 1;
+                        is_detected = 1;
 
-                        //trigger action
-                        if (ledRedState == 0)
-                        {
-                            ESP_LOGI(TAG, "detected ! do something here  \n");
-                            gpio_set_level(LED_RED_IO, 1);
-                            ledRedState = 1;
-                        }
-                        if (ledGreenState == 1)
-                        {
-                            gpio_set_level(LED_GREEN_IO, 0);
-                            ledGreenState = 0;
-                        }
+                        //trigger open action
+
+                        // if (ledRedState == 0)
+                        // {
+                        //     ESP_LOGD(TAG, "detected ! do something here  \n");
+                        //     gpio_set_level(LED_RED_IO, 1);
+                        //     ledRedState = 1;
+                        // }
+                        // if (ledGreenState == 1)
+                        // {
+                        //     gpio_set_level(LED_GREEN_IO, 0);
+                        //     ledGreenState = 0;
+                        // }
                     }
                 }
                 else 
@@ -172,30 +235,31 @@ void auto_detect_task(void * pvParameters)
                     }
                     else
                     {
-                        object->is_detected = 0;
+                        is_detected = 0;
 
-                        //trigger action
-                        if (ledGreenState == 0)
-                        {
-                            ESP_LOGI(TAG, "disappeared !  do something here \n");
-                            gpio_set_level(LED_GREEN_IO, 1);
-                            ledGreenState = 1;
-                        }
-                        if (ledRedState == 1)
-                        {
-                            gpio_set_level(LED_RED_IO, 0);
-                            ledRedState = 0;
-                        }
+                        //trigger close action
+
+                        // if (ledGreenState == 0)
+                        // {
+                        //     ESP_LOGD(TAG, "disappeared !  do something here \n");
+                        //     gpio_set_level(LED_GREEN_IO, 1);
+                        //     ledGreenState = 1;
+                        // }
+                        // if (ledRedState == 1)
+                        // {
+                        //     gpio_set_level(LED_RED_IO, 0);
+                        //     ledRedState = 0;
+                        // }
                     }
                 }
 
                 if (heightCurrent - object->base_height> (object->min_object_height / 2.0)){
 
                     ESP_LOGW(TAG, "NEED MODIFY BASE HEIGHT \n");
-                    object->is_detected = -1;  
+                    is_detected = -2;  
                 }
 
-                ESP_LOGD(TAG, "height %3.1f detectedCount = %d object is detected = %d \n", heightCurrent, detectedCount ,object->is_detected);
+                //ESP_LOGD(TAG, "height %3.1f detectedCount = %d object is detected = %d \n", heightCurrent, detectedCount , is_detected);
 #endif
             }
 
@@ -204,7 +268,7 @@ void auto_detect_task(void * pvParameters)
         vTaskDelay(50 / portTICK_PERIOD_MS);
     } while (1);
 
-    //  return status;
+
 }
 
 

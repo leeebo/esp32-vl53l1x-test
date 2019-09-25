@@ -9,9 +9,7 @@ typedef struct {
     VL53L1_Dev_t *pvl53l1_dev;  //define VL53L1_Dev_t first and set this pointer 
     float base_height;         //if set 0, base height is automatically obtained
     float min_object_height;    //the minimum height to trigger a report
-
-    float height_current;  //current height （cm）
-    int  is_detected;   //detected == 1  undetected == 0  error<0  : undetected == -1 base_height changed 
+    int min_detect_times;   // time (ms)= min_detect_times * 200
 
 }OBJECT_DETECT;
 
@@ -25,22 +23,24 @@ typedef struct {
 void vl53l1_init(OBJECT_DETECT *object);
 
 
-/**
-* @brief measurement height once manually
-* dont call this function when auto_detect_task is running
+/** 
+* @brief deinit  vl53l1 module ,delete auto_detect_task task
 *
 */
-float get_height_once(VL53L1_Dev_t *dev);
+void vl53l1_deinit(OBJECT_DETECT *object);
+
+/**
+* @brief get height value
+* 
+*/
+float vl53l1_get_height(void);
 
 
 /**
- * @brief auto_detect_task 
- * set the is_detected flag when object is detected
- * set the height_current when measurement update
- */
-
-void auto_detect_task(void * pvParameters);
-
+* @brief get height value
+* @return == 1：detected    return== 0：undetected   return == -2：base_height changed  return == -1：vl53l1 not init 
+*/
+int vl53l1_get_detect_result(void);
 
 
 
