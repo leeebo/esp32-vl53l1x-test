@@ -36,6 +36,15 @@ void vl53l1_deinit(OBJECT_DETECT *object);
 float vl53l1_get_height(void);
 
 
+
+/**
+* @brief reset the base height for detect object 
+* cost at least 1000ms
+*/
+float vl53l1_reset_base_height(OBJECT_DETECT *object);
+
+
+
 /**
 * @brief get height value
 * @return == 1：detected    return== 0：undetected   return == -2：base_height changed  return == -1：vl53l1 not init 

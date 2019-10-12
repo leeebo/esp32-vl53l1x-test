@@ -85,8 +85,8 @@ void app_main(void)
         float height = vl53l1_get_height();
         int is_detected = vl53l1_get_detect_result();
         ESP_LOGI(TAG,"CURRENT HEIGHT = %f IS_DETECTES = %d ", height, is_detected);
-
-        vTaskDelay(250/portTICK_PERIOD_MS);
+        //vl53l1_reset_base_height(&object_person);
+        vTaskDelay(1000/portTICK_PERIOD_MS);
     }
     
 

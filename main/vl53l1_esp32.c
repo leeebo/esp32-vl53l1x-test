@@ -28,6 +28,7 @@
 #define LED_RED_IO CONFIG_LED_RED_IO  //make menuconfig 
 #define LED_GREEN_IO CONFIG_LED_GREEN_IO
 static const char *TAG = "vl53l1";
+static SemaphoreHandle_t xSemaphorevl5301x = NULL;
 
 volatile float height_current; //current height （cm）
 volatile int is_detected;      //detected == 1  undetected == 0  error<0  : undetected == -1 base_height changed
@@ -36,32 +37,43 @@ volatile bool is_init = false;
 
 static void auto_detect_task(void * pvParameters) ;
 
-static float get_base_height(VL53L1_Dev_t *dev)
+float vl53l1_reset_base_height(OBJECT_DETECT *object)
 {
-    float heightCurrent = 0;
-    int countForAvg = 5;
-    float heightForAvg = 0;
-    VL53L1_RangingMeasurementData_t RangingData;
-    for (int i = 0; i < countForAvg;)
-    {
+    ESP_LOGI(TAG, "enter height ");
+    if(xSemaphoreTake( xSemaphorevl5301x,1000/portTICK_RATE_MS)== pdTRUE){
 
-        int status = VL53L1_WaitMeasurementDataReady(dev); //5 HZ
-        if (!status)
+        float heightCurrent = 0;
+        int countForAvg = 5;
+        float heightForAvg = 0;
+        float height = 0;
+        VL53L1_RangingMeasurementData_t RangingData;
+        for (int i = 0; i < countForAvg;)
         {
-            status = VL53L1_GetRangingMeasurementData(dev, &RangingData);
-            if (status == 0)
-            {
-                heightCurrent = RangingData.RangeMilliMeter / 10.0;
-                heightForAvg += heightCurrent;
-                i++;
-                ESP_LOGI(TAG, "height %3.1f \n", heightCurrent);
-            }
 
-            status = VL53L1_ClearInterruptAndStartMeasurement(dev); //clear Interrupt start next measurement
+            int status = VL53L1_WaitMeasurementDataReady(object->pvl53l1_dev); //5 HZ
+            if (!status)
+            {
+                status = VL53L1_GetRangingMeasurementData(object->pvl53l1_dev, &RangingData);
+                if (status == 0)
+                {
+                    heightCurrent = RangingData.RangeMilliMeter / 10.0;
+                    heightForAvg += heightCurrent;
+                    i++;
+                    ESP_LOGI(TAG, "height %3.1f \n", heightCurrent);
+                }
+
+                status = VL53L1_ClearInterruptAndStartMeasurement(object->pvl53l1_dev); //clear Interrupt start next measurement
+            }
         }
+        height =  heightForAvg / countForAvg;
+        ESP_LOGI(TAG, "height base = %3.1f \n", height);
+        object->base_height = height;
+        xSemaphoreGive( xSemaphorevl5301x );
+        return true;
+
     }
-    ESP_LOGI(TAG, "height base = %3.1f \n", heightForAvg / countForAvg);
-    return heightForAvg / countForAvg;
+
+    return false;
 }
 
 /** 
@@ -110,11 +122,12 @@ void vl53l1_init(OBJECT_DETECT *object)
         ESP_LOGD(TAG, "VL53L1 StartMeasurement  \n");
     }
 
+    vSemaphoreCreateBinary( xSemaphorevl5301x );
+    xSemaphoreGive( xSemaphorevl5301x );
     if (object->base_height == 0)
     {
-        object->base_height= get_base_height(object->pvl53l1_dev);  //base height is automatically obtained
+        vl53l1_reset_base_height(object);  //base height is automatically obtained
     }
-
     xTaskCreate(auto_detect_task, "auto_detect_task", 2048, object, 5, hauto_detect_task);  
     is_init = true ;
     
@@ -184,8 +197,10 @@ static void auto_detect_task(void * pvParameters)
     // static bool ledRedState = 0;
     // static bool ledGreenState = 0;
 
-    do
-    {                                                      // polling mode
+    while(1)    
+    {      
+        if(xSemaphoreTake( xSemaphorevl5301x, 200/portTICK_RATE_MS)==pdTRUE){
+
         int status = VL53L1_WaitMeasurementDataReady(object->pvl53l1_dev); //5 HZ
         if (!status)
         {
@@ -265,8 +280,11 @@ static void auto_detect_task(void * pvParameters)
 
             status = VL53L1_ClearInterruptAndStartMeasurement(object->pvl53l1_dev); //clear Interrupt start next measurement
         }
-        vTaskDelay(50 / portTICK_PERIOD_MS);
-    } while (1);
+        xSemaphoreGive( xSemaphorevl5301x );
+        vTaskDelay(50 / portTICK_PERIOD_MS); 
+        }                                                // polling mode
+ 
+    };
 
 
 }
